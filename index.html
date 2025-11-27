@@ -12,7 +12,7 @@
     
     <style>
         body { font-family: 'Rubik', sans-serif; background-color: #f3f4f6; }
-        /* Classes de Status e Estilos (Mantidos iguais) */
+        /* Classes de Status e Estilos */
         .status-select { padding: 4px 8px; border-radius: 6px; border: 1px solid #d1d5db; font-weight: 500; -webkit-appearance: none; -moz-appearance: none; appearance: none; background-position: right 8px center; background-repeat: no-repeat; background-size: 14px; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M6 9l4 4 4-4'/%3e%3c/svg%3e"); }
         .status-default { background-color: #f3f4f6; color: #4b5563; }
         .status-pendente { background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
@@ -31,7 +31,7 @@
 </head>
 <body class="bg-gray-100">
 
-    <div id="loading-overlay">Carregando dados do Firebase...</div>
+    <div id="loading-overlay">Conectando ao banco de dados...</div>
 
     <aside id="filter-sidebar" class="fixed top-0 left-0 z-30 w-72 h-screen bg-white shadow-lg p-6 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
         <h3 class="text-xl font-extrabold text-gray-800 mb-6">Filtros</h3>
@@ -162,21 +162,20 @@
     <div id="chart-modal" class="fixed inset-0 z-40 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden"><div class="bg-white rounded-lg shadow-xl w-full max-w-4xl"><header class="flex justify-between p-5 border-b"><h2 id="chart-modal-title" class="font-bold">Gráfico</h2><button id="close-chart-modal-btn"><i class="fa-solid fa-times"></i></button></header><div class="p-6"><div class="mb-4 flex justify-center space-x-4"><label><input type="radio" name="chart-format" value="number" checked> Num</label><label><input type="radio" name="chart-format" value="currency"> R$</label><label><input type="radio" name="chart-format" value="percent"> %</label></div><canvas id="indicator-chart"></canvas></div></div></div>
 
     <script type="module">
-        // Importa as funções do Firebase via CDN
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
         import { getFirestore, collection, doc, setDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
 
-        // --- ⚠️ COLE SUA CONFIGURAÇÃO DO FIREBASE ABAIXO (Substitua tudo entre as chaves) ⚠️ ---
+        // --- SUAS CHAVES DO FIREBASE JÁ INTEGRADAS ABAIXO ---
         const firebaseConfig = {
-  apiKey: "AIzaSyDuQpx3JvBZ1aoF7eDueGQ9DQZCWfmsrjc",
-  authDomain: "dashboard-projetos-ddafa.firebaseapp.com",
-  projectId: "dashboard-projetos-ddafa",
-  storageBucket: "dashboard-projetos-ddafa.firebasestorage.app",
-  messagingSenderId: "179968218754",
-  appId: "1:179968218754:web:ab862528bf152d29f7869b};
-        // ---------------------------------------------------------------------------------------
+            apiKey: "AIzaSyDuQpx3JvBZ1aoF7eDueGQ9DQZCWfmsrjc",
+            authDomain: "dashboard-projetos-ddafa.firebaseapp.com",
+            projectId: "dashboard-projetos-ddafa",
+            storageBucket: "dashboard-projetos-ddafa.firebasestorage.app",
+            messagingSenderId: "179968218754",
+            appId: "1:179968218754:web:ab862528bf152d29f7869b"
+        };
+        // ----------------------------------------------------
 
-        // Inicializa Firebase
         let db;
         try {
             const app = initializeApp(firebaseConfig);
@@ -184,10 +183,9 @@
             console.log("Firebase conectado com sucesso!");
         } catch (error) {
             console.error("Erro ao conectar Firebase:", error);
-            alert("Erro na configuração do Firebase. Verifique se copiou as chaves corretamente no código.");
+            alert("Erro na conexão do Firebase. Verifique o console.");
         }
 
-        // --- VARIÁVEIS GLOBAIS ---
         const projectList = ["MIX DE PRODUTOS", "PRECIFICAÇÃO", "PBM", "PEC", "SETORIZAÇÃO (ESTACIONAMENTO)", "MARCAS PROPRIAS", "GC (FARMACINHA)", "DELIVERY (E-DELIVERY)", "INSPIRE +", "DERMACLUB", "SERVIÇOS FARMACEUTICOS", "CAMPANHA IDOSO", "MEDICAMENTOS ESPECIAIS", "FIDELIZA MAIS"];
         const statusList = [
             { value: 'pendente', text: 'Pendente', class: 'status-pendente' },
@@ -208,22 +206,15 @@
         let consolidatedChartInstance = null;
         let currentChartRowData = null;
 
-        // Elementos DOM
         const loadingOverlay = document.getElementById('loading-overlay');
         const projectTableBody = document.getElementById('project-table-body');
         const storeModal = document.getElementById('store-modal');
         const storeForm = document.getElementById('store-form');
         const toast = document.getElementById('toast');
-        // (Outros elementos pegos conforme uso para economizar linhas)
 
-        // --- FUNÇÕES DE DADOS (AGORA COM FIREBASE) ---
-
-        // Carrega dados em Tempo Real
         function iniciarOuvinteFirebase() {
             if (!db) return;
             const q = collection(db, "lojas");
-            
-            // O snapshot dispara sempre que algo muda no banco
             onSnapshot(q, (querySnapshot) => {
                 const stores = [];
                 querySnapshot.forEach((doc) => {
@@ -233,15 +224,14 @@
                 loadingOverlay.classList.add('hidden-overlay');
             }, (error) => {
                 console.error("Erro ao ler dados:", error);
-                showToast("Erro de permissão ou conexão com Firebase.", true);
-                loadingOverlay.classList.add('hidden-overlay');
+                showToast("Erro: " + error.message, true);
+                loadingOverlay.innerHTML = "<div>Erro de conexão. Verifique o console.</div>";
             });
         }
 
         function processarDados(stores) {
             allFlattenedData = [];
             const filterOptions = { analistas: new Set(), ges: new Set(), associados: new Set(), anjos: new Set(), ufs: new Set(), bandeiras: new Set() };
-
             stores.forEach((store) => {
                 if (store.analista) filterOptions.analistas.add(store.analista);
                 if (store.ge) filterOptions.ges.add(store.ge);
@@ -249,390 +239,83 @@
                 if (store.anjo) filterOptions.anjos.add(store.anjo);
                 if (store.uf) filterOptions.ufs.add(store.uf);
                 if (store.bandeira) filterOptions.bandeiras.add(store.bandeira);
-
                 if (store.projects) {
                     Object.keys(store.projects).forEach(projectName => {
                         const project = store.projects[projectName];
                         const row = {
-                            ...store, // ID, nomeLoja, etc
+                            ...store,
                             projectName: projectName,
                             status: project.status,
                             goal: project.goal || '',
                             observation: project.observation || '',
                             ...project.indicators
                         };
-                        delete row.projects; // Remove o objeto aninhado da linha plana
+                        delete row.projects;
                         allFlattenedData.push(row);
                     });
                 }
             });
-
             allFlattenedData.sort((a, b) => a.nomeLoja.localeCompare(b.nomeLoja));
             recalculateKPIs();
             populateFilterSelects(filterOptions);
-            applyAllFilters(); // Reaplica filtros na tela
+            applyAllFilters();
         }
 
         async function salvarLojaFirebase(storeId, data) {
-            // data deve ser o objeto completo da loja
-            try {
-                await setDoc(doc(db, "lojas", storeId), data, { merge: true });
-                showToast("Dados salvos no Firebase!");
-            } catch (error) {
-                console.error("Erro ao salvar:", error);
-                showToast("Erro ao salvar: " + error.message, true);
-            }
+            try { await setDoc(doc(db, "lojas", storeId), data, { merge: true }); showToast("Dados salvos!"); }
+            catch (error) { console.error(error); showToast("Erro ao salvar", true); }
         }
 
         async function atualizarProjetoFirebase(storeId, projectName, fieldPath, value) {
-            // Atualiza um campo específico de um projeto (ex: status, meta, indicador)
             try {
                 const docRef = doc(db, "lojas", storeId);
-                // Monta o caminho do campo: "projects.NOME_DO_PROJETO.CAMPO"
                 const updateKey = `projects.${projectName}.${fieldPath}`;
-                
-                await updateDoc(docRef, {
-                    [updateKey]: value
-                });
-                // Não precisa de showToast aqui pra não poluir, o onSnapshot atualiza a tela
-            } catch (error) {
-                console.error("Erro update:", error);
-                showToast("Erro ao atualizar campo.", true);
-            }
+                await updateDoc(docRef, { [updateKey]: value });
+            } catch (error) { console.error(error); showToast("Erro ao atualizar", true); }
         }
         
         async function deletarProjetoFirebase(storeId, projectName) {
             try {
                 const docRef = doc(db, "lojas", storeId);
-                // Para deletar um campo de mapa no Firestore, usamos deleteField() 
-                // Mas como estamos importando modulos, o jeito mais facil é ler, apagar do objeto e salvar de volta
-                // Ou usar update com notation de delete. No SDK v9 o deleteField é importado.
-                // Vamos simplificar: ler o doc atual, remover a chave e salvar.
-                // (Nota: o ideal seria deleteField, mas exigiria mais imports)
-                
-                // Opção Robust:
-                // import { deleteField } from '...firestore.js';
-                // await updateDoc(docRef, { [`projects.${projectName}`]: deleteField() });
-                
-                // Vamos improvisar para manter imports simples: ler, apagar, set.
-                // Como temos os dados locais atualizados (stores no onSnapshot), poderiamos usar.
-                // Mas vamos fazer o update com o valor especial do Firestore para deletar seria melhor.
-                // Vou adicionar o import deleteField dinamicamente.
                 const { deleteField } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js');
-                
-                await updateDoc(docRef, {
-                    [`projects.${projectName}`]: deleteField()
-                });
-                
+                await updateDoc(docRef, { [`projects.${projectName}`]: deleteField() });
                 showToast("Projeto excluído!");
-            } catch (error) {
-                console.error("Erro delete:", error);
-                showToast("Erro ao excluir.", true);
-            }
+            } catch (error) { console.error(error); showToast("Erro ao excluir", true); }
         }
-
-        // --- MANIPULAÇÃO DA TELA (ADAPTADA) ---
 
         window.handleFormSubmit = async (e) => {
             e.preventDefault();
             const btn = document.getElementById('save-store-btn');
             btn.textContent = 'Salvando...'; btn.disabled = true;
-
             const formData = new FormData(storeForm);
-            const storeId = formData.get('cnpj'); // ID é o CNPJ
+            const storeId = formData.get('cnpj');
             const isEditMode = document.getElementById('cnpj').readOnly;
-
-            // Dados básicos da loja
             const storeData = {
-                analista: formData.get('analista'),
-                anjo: formData.get('anjo'),
-                uf: formData.get('uf'),
-                bandeira: formData.get('bandeira'),
-                ge: formData.get('ge'),
-                associado: formData.get('associado'),
+                analista: formData.get('analista'), anjo: formData.get('anjo'), uf: formData.get('uf'),
+                bandeira: formData.get('bandeira'), ge: formData.get('ge'), associado: formData.get('associado'),
                 nomeLoja: formData.get('nome-loja'),
             };
 
             if (isEditMode) {
-                // Modo Edição: Apenas dados da loja
                 await salvarLojaFirebase(storeId, storeData);
             } else {
-                // Modo Criação de Projeto
                 const projectName = formData.get('nome-projeto');
                 if (!storeId || !projectName) { showToast("CNPJ e Projeto obrigatórios", true); btn.disabled=false; return; }
-
-                // Busca dados atuais da loja para não sobrescrever outros projetos
-                // O setDoc com {merge:true} faz isso, mas para criar a estrutura deep:
                 const indicators = {}; indicatorMonths.forEach(m => indicators[m.id] = '');
-                
-                const newProject = {
-                    status: 'pendente',
-                    goal: formData.get('meta') || '',
-                    observation: formData.get('observation') || '',
-                    indicators: indicators
-                };
-
-                // Estrutura para salvar: projects.NOME = objeto
-                // No Firestore setDoc com merge lida bem com objetos aninhados se usarmos dot notation no update,
-                // mas aqui estamos enviando um objeto "projects" inteiro se for novo.
-                // Melhor estratégia: Pegar o doc atual (se existir) ou criar.
-                
-                // Vamos usar setDoc com merge no nivel raiz.
-                // Precisa mandar { projects: { [projectName]: newProject }, ...storeData }
-                const payload = {
-                    ...storeData,
-                    projects: {
-                        [projectName]: newProject
-                    }
-                };
-                
-                // O merge:true do Firestore vai mesclar o mapa "projects" ou substituir?
-                // O setDoc com merge mescla campos de alto nível. Se "projects" já existe, ele mescla o conteúdo SE usarmos a notação de ponto
-                // OU se usarmos SetOptions mergeFields.
-                // A forma mais segura sem complicar é usar updateDoc se já existe, setDoc se não.
-                // Mas para simplificar neste código único:
-                // Vamos usar dot notation para a chave do projeto no payload é mais seguro para não apagar os outros.
-                // Mas dot notation não funciona direto no objeto literal JS.
-                
-                // Solução Híbrida Segura:
-                // 1. Salva dados da loja
+                const newProject = { status: 'pendente', goal: formData.get('meta')||'', observation: formData.get('observation')||'', indicators: indicators };
                 await setDoc(doc(db, "lojas", storeId), storeData, { merge: true });
-                // 2. Atualiza o projeto específico
-                await atualizarProjetoFirebase(storeId, projectName, "", newProject); 
-                // (Nota: minha função atualizarProjetoFirebase espera um fieldPath. Se passar string vazia, não dá.
-                //  Vamos fazer um update direto aqui).
-                const docRef = doc(db, "lojas", storeId);
-                await updateDoc(docRef, {
-                    [`projects.${projectName}`]: newProject
-                });
+                await updateDoc(doc(db, "lojas", storeId), { [`projects.${projectName}`]: newProject });
             }
-
             document.getElementById('store-modal').classList.add('hidden');
             storeForm.reset();
             btn.textContent = 'Salvar'; btn.disabled = false;
         };
         
-        // Expor funções para o HTML (onClick)
-        window.handleStatusChange = (e) => {
-            const { storeId, projectName } = e.target.dataset;
-            atualizarProjetoFirebase(storeId, projectName, "status", e.target.value);
-            // Atualiza visualmente na hora para feedback rápido (opcional, pois o snapshot já fará)
-            updateStatusColor(e.target);
-        };
+        window.handleStatusChange = (e) => { const { storeId, projectName } = e.target.dataset; atualizarProjetoFirebase(storeId, projectName, "status", e.target.value); updateStatusColor(e.target); };
+        window.handleIndicatorChange = (e) => { const { storeId, projectName, month } = e.target.dataset; atualizarProjetoFirebase(storeId, projectName, `indicators.${month}`, e.target.value); };
+        window.handleMetaChange = (e) => { const { storeId, projectName } = e.target.dataset; atualizarProjetoFirebase(storeId, projectName, "goal", e.target.value); };
+        window.handleSaveObservation = () => { const btn = document.getElementById('save-obs-btn'); const { storeId, projectName } = btn.dataset; atualizarProjetoFirebase(storeId, projectName, "observation", document.getElementById('obs-modal-textarea').value); document.getElementById('obs-modal').classList.add('hidden'); showToast("Obs salva!"); };
+        window.confirmProjectDelete = () => { const btn = document.getElementById('confirm-delete-btn'); deletarProjetoFirebase(btn.dataset.storeId, btn.dataset.projectName); document.getElementById('delete-confirm-modal').classList.add('hidden'); };
 
-        window.handleIndicatorChange = (e) => {
-            const { storeId, projectName, month } = e.target.dataset;
-            // indicators é um sub-objeto. Caminho: projects.PROJETO.indicators.MES
-            const path = `indicators.${month}`;
-            atualizarProjetoFirebase(storeId, projectName, path, e.target.value);
-        };
-        
-        window.handleMetaChange = (e) => {
-            const { storeId, projectName } = e.target.dataset;
-            atualizarProjetoFirebase(storeId, projectName, "goal", e.target.value);
-        };
-
-        window.handleSaveObservation = () => {
-            const btn = document.getElementById('save-obs-btn');
-            const { storeId, projectName } = btn.dataset;
-            const val = document.getElementById('obs-modal-textarea').value;
-            atualizarProjetoFirebase(storeId, projectName, "observation", val);
-            document.getElementById('obs-modal').classList.add('hidden');
-            showToast("Observação salva!");
-        };
-
-        window.confirmProjectDelete = () => {
-             const btn = document.getElementById('confirm-delete-btn');
-             const { storeId, projectName } = btn.dataset;
-             deletarProjetoFirebase(storeId, projectName);
-             document.getElementById('delete-confirm-modal').classList.add('hidden');
-        };
-
-        // --- FUNÇÕES DE INTERFACE AUXILIARES (Reutilizadas) ---
         function showToast(msg, err=false) { toast.textContent=msg; toast.className = `fixed top-6 right-6 p-4 rounded-lg text-white shadow-lg transform transition-all duration-300 z-50 ${err?'bg-red-600':'bg-green-600'} translate-x-0 opacity-100`; setTimeout(()=>toast.classList.add('translate-x-full', 'opacity-0'), 3000); }
-        function updateStatusColor(el) { statusList.forEach(s=>el.classList.remove(s.class)); const st = statusList.find(s=>s.value===el.value); if(st) el.classList.add(st.class); else el.classList.add('status-default'); }
-        function populateFilterSelects(opt) {
-            const fill = (id, set) => { const el = document.getElementById(id); const val = el.value; el.innerHTML='<option value="">Todos</option>'; [...set].sort().forEach(x=>{if(x)el.innerHTML+=`<option value="${x}">${x}</option>`}); el.value=val; };
-            fill('filter-analista', opt.analistas); fill('filter-ge', opt.ges); fill('filter-associado', opt.associados);
-            fill('filter-uf', opt.ufs); fill('filter-anjo', opt.anjos); fill('filter-bandeira', opt.bandeiras);
-            fill('chart-filter-ge', opt.ges);
-            // Projetos
-            const pSel = document.getElementById('filter-projeto'); const pVal = pSel.value; pSel.innerHTML='<option value="">Todos</option>'; projectList.forEach(p=>pSel.innerHTML+=`<option value="${p}">${p}</option>`); pSel.value=pVal;
-            const cSel = document.getElementById('chart-filter-project'); const cVal = cSel.value; cSel.innerHTML='<option value="" disabled selected>Selecione...</option>'; projectList.forEach(p=>cSel.innerHTML+=`<option value="${p}">${p}</option>`); cSel.value=cVal;
-            const mSel = document.getElementById('nome-projeto'); mSel.innerHTML='<option value="" disabled selected>Selecione...</option>'; projectList.forEach(p=>mSel.innerHTML+=`<option value="${p}">${p}</option>`);
-        }
-        function recalculateKPIs() {
-            const kpi = { totalLojas: new Set(), pendente:0, pendenteAssocia:0, andamento:0, finalizado:0 };
-            allFlattenedData.forEach(r => {
-                kpi.totalLojas.add(r.id);
-                if(r.status==='pendente') kpi.pendente++;
-                else if(r.status==='pendente-associa') kpi.pendenteAssocia++;
-                else if(r.status==='andamento') kpi.andamento++;
-                else if(r.status==='finalizado') kpi.finalizado++;
-            });
-            document.getElementById('kpi-total-lojas').textContent = kpi.totalLojas.size;
-            document.getElementById('kpi-projetos-pendentes').textContent = kpi.pendente;
-            document.getElementById('kpi-projetos-pendentes-associa').textContent = kpi.pendenteAssocia;
-            document.getElementById('kpi-em-andamento').textContent = kpi.andamento;
-            document.getElementById('kpi-projetos-finalizados').textContent = kpi.finalizado;
-        }
-
-        function renderTable(data) {
-            projectTableBody.innerHTML = '';
-            if(!data.length) { projectTableBody.innerHTML = '<tr><td colspan="30" class="text-center p-8 text-gray-500">Nenhum dado encontrado.</td></tr>'; return; }
-            
-            data.forEach(row => {
-                const tr = document.createElement('tr'); tr.className = 'bg-white border-b hover:bg-gray-50';
-                const stClass = statusList.find(s=>s.value===row.status)?.class || 'status-default';
-                const stOpts = statusList.map(s=>`<option value="${s.value}" ${s.value===row.status?'selected':''}>${s.text}</option>`).join('');
-                const indicators = indicatorMonths.map(m => `
-                    <td class="px-4 py-2 text-center"><input type="number" class="indicator-input-table" value="${row[m.id]||''}" placeholder="-" data-store-id="${row.id}" data-project-name="${row.projectName}" data-month="${m.id}" onblur="handleIndicatorChange(event)"></td>
-                `).join('');
-                
-                tr.innerHTML = `
-                    <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">${row.nomeLoja||'-'}</td>
-                    <td class="px-4 py-3 text-gray-600">${row.id}</td>
-                    <td class="px-4 py-3 text-gray-600">${row.analista||'-'}</td>
-                    <td class="px-4 py-3 text-gray-600">${row.ge||'-'}</td>
-                    <td class="px-4 py-3 text-gray-600">${row.associado||'-'}</td>
-                    <td class="px-4 py-3 text-gray-600">${row.bandeira||'-'}</td>
-                    <td class="px-4 py-3 font-medium text-gray-800">${row.projectName}</td>
-                    <td class="px-4 py-3 text-center"><select class="status-select ${stClass}" data-store-id="${row.id}" data-project-name="${row.projectName}" onchange="handleStatusChange(event)">${stOpts}</select></td>
-                    <td class="px-4 py-2 text-center"><input type="number" class="indicator-input-table" value="${row.goal||''}" placeholder="-" data-store-id="${row.id}" data-project-name="${row.projectName}" onblur="handleMetaChange(event)"></td>
-                    ${indicators}
-                    <td class="px-4 py-3 text-center"><button class="view-obs-btn ${row.observation?'obs-filled':'text-gray-400'}" onclick="openObs('${row.id}','${row.projectName}','${row.observation||''}')"><i class="fa-solid fa-note-sticky fa-lg"></i></button></td>
-                    <td class="px-4 py-3 text-center"><div class="flex items-center justify-center gap-x-3 min-w-[120px]">
-                        <button class="text-blue-500" onclick="editStore('${row.id}')"><i class="fa-solid fa-pencil fa-lg"></i></button>
-                        <button class="text-[#FF5510]" onclick="openChart('${row.id}','${row.projectName}')"><i class="fa-solid fa-chart-line fa-lg"></i></button>
-                        <button class="text-red-500" onclick="askDelete('${row.id}','${row.projectName}')"><i class="fa-solid fa-trash fa-lg"></i></button>
-                    </div></td>
-                `;
-                projectTableBody.appendChild(tr);
-            });
-        }
-        
-        // Funções Globais para o HTML chamar
-        window.openObs = (id, proj, obs) => {
-            document.getElementById('obs-modal-title').textContent = `Obs: ${proj}`;
-            document.getElementById('obs-modal-textarea').value = obs;
-            const btn = document.getElementById('save-obs-btn'); btn.dataset.storeId=id; btn.dataset.projectName=proj;
-            document.getElementById('obs-modal').classList.remove('hidden');
-        };
-        window.editStore = (id) => {
-            const row = allFlattenedData.find(r=>r.id===id);
-            if(!row) return;
-            document.getElementById('cnpj').value = row.id; document.getElementById('cnpj').readOnly=true;
-            document.getElementById('nome-loja').value = row.nomeLoja;
-            document.getElementById('analista').value = row.analista||'';
-            document.getElementById('ge').value = row.ge||'';
-            document.getElementById('associado').value = row.associado||'';
-            document.getElementById('bandeira').value = row.bandeira||'';
-            document.getElementById('uf').value = row.uf||'';
-            document.getElementById('anjo').value = row.anjo||'';
-            
-            document.getElementById('store-modal-title').textContent="Editar Loja";
-            document.getElementById('save-store-btn').textContent="Atualizar Loja";
-            document.getElementById('form-project-group').style.display='none';
-            document.getElementById('form-meta-group').style.display='none';
-            document.getElementById('form-observation-group').style.display='none';
-            document.getElementById('nome-projeto').required=false;
-            document.getElementById('store-modal').classList.remove('hidden');
-        };
-        window.askDelete = (id, proj) => {
-            document.getElementById('delete-modal-text').textContent = `Excluir projeto "${proj}"?`;
-            const btn = document.getElementById('confirm-delete-btn'); btn.dataset.storeId=id; btn.dataset.projectName=proj;
-            document.getElementById('delete-confirm-modal').classList.remove('hidden');
-        };
-        window.openChart = (id, proj) => {
-            const row = allFlattenedData.find(r=>r.id===id && r.projectName===proj);
-            if(!row) return;
-            currentChartRowData = row;
-            renderChart(row);
-            document.getElementById('chart-modal').classList.remove('hidden');
-        };
-
-        function applyAllFilters() {
-            const s = document.getElementById('search-input').value.toLowerCase();
-            const fAna = document.getElementById('filter-analista').value;
-            const fGe = document.getElementById('filter-ge').value;
-            const fProj = document.getElementById('filter-projeto').value;
-            const fCnpj = document.getElementById('filter-cnpj').value.toLowerCase();
-            const fLoja = document.getElementById('filter-loja').value.toLowerCase();
-            
-            const filtered = allFlattenedData.filter(r => {
-                return (s==='' || r.nomeLoja.toLowerCase().includes(s) || r.id.includes(s)) &&
-                       (fAna==='' || r.analista===fAna) &&
-                       (fGe==='' || r.ge===fGe) &&
-                       (fProj==='' || r.projectName===fProj) &&
-                       (fCnpj==='' || r.id.includes(fCnpj)) &&
-                       (fLoja==='' || r.nomeLoja.toLowerCase().includes(fLoja));
-            });
-            renderTable(filtered);
-        }
-
-        // Gráfico (Chart.js)
-        function renderChart(row, format='number') {
-            const ctx = document.getElementById('indicator-chart').getContext('2d');
-            const data = indicatorMonths.map(m => Number(row[m.id])||0);
-            if(currentChartInstance) currentChartInstance.destroy();
-            currentChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: { labels: chartLabels, datasets: [{ label: 'Realizado', data: data, borderColor: '#FF5510', backgroundColor: 'rgba(255,85,16,0.1)', fill: true }] },
-                options: { responsive:true, plugins: { annotation: { annotations: { line1: { type: 'line', yMin: Number(row.goal)||0, yMax: Number(row.goal)||0, borderColor: 'red', borderWidth: 2, borderDash: [5,5], label: { content: 'Meta', enabled: true } } } } } }
-            });
-        }
-        
-        // Gráfico Consolidado
-        document.getElementById('generate-chart-btn').addEventListener('click', () => {
-             const proj = document.getElementById('chart-filter-project').value;
-             if(!proj) { showToast("Selecione um projeto", true); return; }
-             const filtered = allFlattenedData.filter(r => r.projectName === proj);
-             const datasets = filtered.map(r => ({
-                 label: r.nomeLoja,
-                 data: indicatorMonths.map(m => Number(r[m.id])||0),
-                 borderColor: '#'+Math.floor(Math.random()*16777215).toString(16),
-                 fill: false
-             }));
-             const ctx = document.getElementById('consolidated-chart').getContext('2d');
-             if(consolidatedChartInstance) consolidatedChartInstance.destroy();
-             consolidatedChartInstance = new Chart(ctx, { type: 'line', data: { labels: chartLabels, datasets: datasets } });
-        });
-
-        // Event Listeners UI
-        document.getElementById('store-form').addEventListener('submit', handleFormSubmit);
-        document.getElementById('open-modal-btn').addEventListener('click', () => {
-            storeForm.reset(); document.getElementById('cnpj').readOnly=false;
-            document.getElementById('store-modal-title').textContent="Nova Loja";
-            document.getElementById('save-store-btn').textContent="Salvar";
-            document.getElementById('form-project-group').style.display='block';
-            document.getElementById('form-meta-group').style.display='block';
-            document.getElementById('form-observation-group').style.display='block';
-            document.getElementById('nome-projeto').required=true;
-            document.getElementById('store-modal').classList.remove('hidden');
-        });
-        document.getElementById('close-modal-btn').addEventListener('click', ()=>document.getElementById('store-modal').classList.add('hidden'));
-        document.getElementById('cancel-modal-btn').addEventListener('click', ()=>document.getElementById('store-modal').classList.add('hidden'));
-        document.getElementById('close-chart-modal-btn').addEventListener('click', ()=>document.getElementById('chart-modal').classList.add('hidden'));
-        document.getElementById('close-obs-modal-btn').addEventListener('click', ()=>document.getElementById('obs-modal').classList.add('hidden'));
-        document.getElementById('cancel-obs-btn').addEventListener('click', ()=>document.getElementById('obs-modal').classList.add('hidden'));
-        document.getElementById('save-obs-btn').addEventListener('click', handleSaveObservation);
-        document.getElementById('cancel-delete-btn').addEventListener('click', ()=>document.getElementById('delete-confirm-modal').classList.add('hidden'));
-        document.getElementById('confirm-delete-btn').addEventListener('click', confirmProjectDelete);
-        
-        document.getElementById('toggle-filter-btn').addEventListener('click', ()=>document.getElementById('filter-sidebar').classList.toggle('-translate-x-full'));
-        document.getElementById('apply-filters-btn').addEventListener('click', applyAllFilters);
-        document.getElementById('clear-filters-btn').addEventListener('click', () => {
-            document.querySelectorAll('#filter-sidebar select, #filter-sidebar input').forEach(e=>e.value='');
-            applyAllFilters();
-        });
-        document.getElementById('search-input').addEventListener('input', applyAllFilters);
-
-        // Inicialização
-        if(firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
-            iniciarOuvinteFirebase();
-        } else {
-            loadingOverlay.innerHTML = "<div>⚠️ <strong>Configuração Pendente</strong><br>Abra o código e cole sua API Key do Firebase.</div>";
-        }
-    </script>
-</body>
-</html>
+        function updateStatusColor(el) { statusList.forEach(s=>el.classList.remove(s.class)); const st = statusList.find(s=>s.value===el.value); if(st)
